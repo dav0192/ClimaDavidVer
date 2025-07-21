@@ -114,6 +114,7 @@ private fun CircularWeatherLayout(
 ) {
     // Cambiar Temperatura
     var showFahrenheit by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -465,10 +466,13 @@ private fun ErrorMessage(message: String = "Error de conexión") {
 @Composable
 fun WeatherListScreen(onBackClick: () -> Unit) {
     val listState = rememberScalingLazyListState()
+
     var forecastData by remember { mutableStateOf<List<WeatherDayData>?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var locationName by remember { mutableStateOf("Obteniendo ubicación...") }
+    var showFahrenheit by remember { mutableStateOf(false) }
+
     val context = LocalContext.current
     val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
 
@@ -534,8 +538,12 @@ fun WeatherListScreen(onBackClick: () -> Unit) {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
-                        item { CircularHeader(locationName = locationName, onBackClick = onBackClick) }
-                        items(forecastData!!) { dayData -> CircularWeatherCard(dayData = dayData) }
+                        item { CircularHeader(
+                            locationName = locationName,
+                            onBackClick = onBackClick,
+                            onToggleTemperatureFormat = { showFahrenheit = !showFahrenheit }
+                        ) }
+                        items(forecastData!!) { dayData -> CircularWeatherCard(dayData = dayData, showFahrenheit = showFahrenheit) }
                         item {
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
@@ -554,14 +562,18 @@ fun WeatherListScreen(onBackClick: () -> Unit) {
 }
 
 @Composable
-private fun CircularHeader(locationName: String, onBackClick: () -> Unit) {
+private fun CircularHeader(
+    locationName: String,
+    onBackClick: () -> Unit,
+    onToggleTemperatureFormat: () -> Unit
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.padding(bottom = 0.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Button(
@@ -574,6 +586,8 @@ private fun CircularHeader(locationName: String, onBackClick: () -> Unit) {
                     modifier = Modifier.size(12.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.width(8.dp))
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -593,13 +607,27 @@ private fun CircularHeader(locationName: String, onBackClick: () -> Unit) {
                 )
             }
 
-            Spacer(modifier = Modifier.size(26.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Button(
+                onClick = onToggleTemperatureFormat,
+                modifier = Modifier.size(26.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Thermostat,
+                    contentDescription = "Cambiar Formato",
+                    modifier = Modifier.size(12.dp)
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun CircularWeatherCard(dayData: WeatherDayData) {
+private fun CircularWeatherCard(
+    dayData: WeatherDayData,
+    showFahrenheit: Boolean
+) {
     Box(
         modifier = Modifier
             .width(140.dp)
@@ -645,6 +673,22 @@ private fun CircularWeatherCard(dayData: WeatherDayData) {
                 tint = getWeatherIconColor(dayData.condition, dayData.temperature.toFloat())
             )
 
+            // Aquí es donde usaremos el 'showFahrenheit' que nos pasaron
+            val currentTempCelsius = dayData.temperature?.toFloat() ?: 0.0f
+            val displayTemp = if (showFahrenheit) {
+                convertCelsiusToFahrenheit(currentTempCelsius).toInt()
+            } else {
+                currentTempCelsius.toInt()
+            }
+            val tempUnit = if (showFahrenheit) "°F" else "°C"
+
+            // Ajusta el cálculo de displayTempMin para que también use el formato correcto
+            val displayTempMin = if (showFahrenheit) {
+                convertCelsiusToFahrenheit(currentTempCelsius - 8).toInt()
+            } else {
+                (currentTempCelsius - 8).toInt()
+            }
+
             // Columna de temperatura
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -652,14 +696,14 @@ private fun CircularWeatherCard(dayData: WeatherDayData) {
             ) {
                 Text(
                     // Temperatura del Día
-                    text = "${dayData.temperature}°",
+                    text = "$displayTemp$tempUnit",
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
                 Text(
                     // Temperatura mínima
-                    text = "${dayData.temperature - 8}°",
+                    text = "$displayTempMin$tempUnit",
                     fontSize = 7.sp,
                     color = Color.White.copy(alpha = 0.6f)
                 )
